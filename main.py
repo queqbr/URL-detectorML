@@ -1,6 +1,7 @@
 import csv
 
 from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import train_test_split
 import numpy as np
 
 def numOfPHP(inputs):
@@ -77,23 +78,25 @@ def get_data():
     next(reader)
     target = np.array([labels[line[1]] for line in reader])
 
-    return inputs.T, target
+    inputs_train, inputs_test, targets_train, targets_test = train_test_split(
+        inputs.T, target, test_size=None,
+        random_state=0, shuffle=True, stratify=target
+    )
+    return inputs_train, inputs_test, targets_train, targets_test
 
 def main():
-    inputs, target = get_data()
+    inputs_train, inputs_test, targets_train, targets_test = get_data()
 
     classifier = MLPClassifier(random_state=0, verbose=1)
-    test_size = 10
 
     # Train on all the data AFTER the first 10 (i.e. on 1787 images)
-    classifier.fit(inputs[test_size:], target[test_size:])
+    classifier.fit(inputs_train, targets_train)
 
     # Test on ONLY the first 10 digits
     # (which coincidentally are themselves the digits 1,2,3,4,5,6,7,8,9 in order)
-    results = classifier.predict(inputs[:test_size])
+    results = classifier.predict(inputs_test)
 
-    print(f'Accuracy: {(results == target).mean()}')
-
+    print(f'Accuracy: {(results == targets_test).mean()}')
 
 if __name__ == '__main__':
     main()
