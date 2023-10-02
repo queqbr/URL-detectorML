@@ -1,9 +1,44 @@
 import csv
-
+import re
 from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+import matplotlib.pyplot as plt
 import numpy as np
 
+def display_accuracy(target, predictions, labels, title):
+    cm = confusion_matrix(target, predictions)
+    cm_display = ConfusionMatrixDisplay(cm, display_labels=labels)
+    fig, ax = plt.subplots()
+    cm_display.plot(ax=ax)
+    ax.set_title(title)
+    plt.show()
+def urlLen(inputs):
+    urlLen = np.zeros(len(inputs), dtype="int32")
+    for i in range(len(inputs)):
+        urlLen[i] = len(inputs[i])
+    return urlLen
+def http(inputs):
+    http = np.zeros(len(inputs), dtype="int32")
+    for i in range(len(inputs)):
+        http[i] = inputs[i].count("http")
+    return http
+def closeChars(inputs):
+    close = np.zeros(len(inputs), dtype="int32")
+    for i in range(len(inputs)):
+        close[i] = inputs[i].isascii()
+    return close
+def numOfNums(inputs):
+    nums = np.zeros(len(inputs), dtype="int32")
+    for i in range(len(inputs)):
+        nums[i] = len(re.sub("[^0-9]", "", inputs[i]))
+    return nums
+def numPercent(inputs):
+    perc = np.zeros(len(inputs), dtype="int32")
+    for i in range(len(inputs)):
+        perc[i] = inputs[i].count("%")
+    return perc
 def numOfPHP(inputs):
     numPHP = np.zeros(len(inputs), dtype="int32")
     for i in range(len(inputs)):
@@ -53,8 +88,8 @@ def numAmp(inputs):
     return numA
 
 def get_data():
-    filename = 'malicious_phish.csv'
-    reader = csv.reader(open(filename))
+    filename = 'C:\\Users\\queqb\\Downloads\\malicious_phish.csv'
+    reader = csv.reader(open(filename, encoding="latin1"))
     next(reader)
     urls = [line[0] for line in reader]
     PHP = numOfPHP(urls)
@@ -65,7 +100,12 @@ def get_data():
     Equals = numOfEq(urls)
     Period = numPeriod(urls)
     Amp = numAmp(urls)
-    inputs = np.stack([PHP, WWW, HTML, Hyphen, Question, Equals, Period, Amp])
+    Len = urlLen(urls)
+    Http = http(urls)
+    Close = closeChars(urls)
+    numNums = numOfNums(urls)
+    Percent = numPercent(urls)
+    inputs = np.stack([PHP, WWW, HTML, Hyphen, Question, Equals, Period, Amp, Len, Http, Close, numNums, Percent])
 
     labels = {
         'benign': 0,
@@ -74,7 +114,7 @@ def get_data():
         'malware': 3,
     }
 
-    reader = csv.reader(open(filename))
+    reader = csv.reader(open(filename, encoding="latin1"))
     next(reader)
     target = np.array([labels[line[1]] for line in reader])
 
@@ -95,7 +135,7 @@ def main():
     # Test on ONLY the first 10 digits
     # (which coincidentally are themselves the digits 1,2,3,4,5,6,7,8,9 in order)
     results = classifier.predict(inputs_test)
-
+    #display_accuracy(targets_test, results, "labels", "malicious urls")
     print(f'Accuracy: {(results == targets_test).mean()}')
 
 if __name__ == '__main__':
