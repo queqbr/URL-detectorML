@@ -2,7 +2,6 @@ import csv
 import inspect
 import re
 
-from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
@@ -18,6 +17,7 @@ labels = {
     'phishing': 2,
     'malware': 3,
 }
+
 def format_label_names(d):
     """
     Concatenate keys with the same value into a single string, demarcated by newline characters.
@@ -40,6 +40,7 @@ def format_label_names(d):
         concatenated_keys_list.append("\n".join(v))
 
     return concatenated_keys_list
+
 def display_accuracy(target, predictions, labels, title):
     cm = confusion_matrix(target, predictions)
     cm_display = ConfusionMatrixDisplay(cm, display_labels=labels)
@@ -151,21 +152,20 @@ def get_data():
 
 def main():
     model_load_path = Path('model.pickle')
+    inputs_train, inputs_test, targets_train, targets_test = get_data()
     if model_load_path.exists():
-        pickle.load('model.pickle')
+        classifier = pickle.load('model.pickle')
     else:
-        inputs_train, inputs_test, targets_train, targets_test = get_data()
-
-        classifier = RandomForestClassifier(random_state=0, verbose=1)
-
-        # Train on all the data AFTER the first 10 (i.e. on 1787 images)
+        classifier = RandomForestClassifier(random_state=0, verbose=1, n_estimators=100)
         classifier.fit(inputs_train, targets_train)
-        results = classifier.predict(inputs_test)
-        pickle.dumps
+        pickle.dump(classifier, model_load_path.open(mode='wb'))
 
-    # Test on ONLY the first 10 digits
-    # (which coincidentally are themselves the digits 1,2,3,4,5,6,7,8,9 in order)
-    #print(results.feature_importances_)
+    results = classifier.predict(inputs_test)
+
+    feat_names = sorted([t[0] for t in inspect.getmembers(Features, predicate=inspect.isfunction)])
+    feats = sorted(zip(classifier.feature_importances_, feat_names))[::-1]
+    print('Feature importances:')
+    print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in feats]))
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
     print(f'Accuracy: {(results == targets_test).mean()}')
 
