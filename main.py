@@ -6,6 +6,8 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+from pathlib import Path
+import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -16,7 +18,28 @@ labels = {
     'phishing': 2,
     'malware': 3,
 }
+def format_label_names(d):
+    """
+    Concatenate keys with the same value into a single string, demarcated by newline characters.
 
+    :param d: Dictionary with multiple keys mapping to the same value.
+    :type d: dict
+    :return: List of strings where keys mapping to the same value are concatenated.
+    :rtype: list
+    """
+    # Create a reverse mapping of values to lists of keys
+    reversed_dict = {}
+    for key, value in d.items():
+        if value not in reversed_dict:
+            reversed_dict[value] = []
+        reversed_dict[value].append(key)
+
+    # Create a list of concatenated keys
+    concatenated_keys_list = []
+    for _, v in sorted(reversed_dict.items()):
+        concatenated_keys_list.append("\n".join(v))
+
+    return concatenated_keys_list
 def display_accuracy(target, predictions, labels, title):
     cm = confusion_matrix(target, predictions)
     cm_display = ConfusionMatrixDisplay(cm, display_labels=labels)
@@ -127,17 +150,23 @@ def get_data():
     return inputs_train, inputs_test, targets_train, targets_test
 
 def main():
-    inputs_train, inputs_test, targets_train, targets_test = get_data()
+    model_load_path = Path('model.pickle')
+    if model_load_path.exists():
+        pickle.load('model.pickle')
+    else:
+        inputs_train, inputs_test, targets_train, targets_test = get_data()
 
-    classifier = RandomForestClassifier(random_state=0, verbose=1)
+        classifier = RandomForestClassifier(random_state=0, verbose=1)
 
-    # Train on all the data AFTER the first 10 (i.e. on 1787 images)
-    classifier.fit(inputs_train, targets_train)
+        # Train on all the data AFTER the first 10 (i.e. on 1787 images)
+        classifier.fit(inputs_train, targets_train)
+        results = classifier.predict(inputs_test)
+        pickle.dumps
 
     # Test on ONLY the first 10 digits
     # (which coincidentally are themselves the digits 1,2,3,4,5,6,7,8,9 in order)
-    results = classifier.predict(inputs_test)
-    display_accuracy(targets_test, results, labels.keys(), "Malicious URLs")
+    #print(results.feature_importances_)
+    display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
     print(f'Accuracy: {(results == targets_test).mean()}')
 
 if __name__ == '__main__':
