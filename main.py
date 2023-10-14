@@ -2,8 +2,10 @@ import csv
 import inspect
 import re
 
+import sklearn
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 from pathlib import Path
 import pickle
@@ -154,7 +156,8 @@ def main():
     model_load_path = Path('model.pickle')
     inputs_train, inputs_test, targets_train, targets_test = get_data()
     if model_load_path.exists():
-        classifier = pickle.load('model.pickle')
+        with open('model.pickle', 'rb') as pickle_file:
+            classifier = pickle.load(pickle_file)
     else:
         classifier = RandomForestClassifier(random_state=0, verbose=1, n_estimators=100)
         classifier.fit(inputs_train, targets_train)
@@ -167,6 +170,30 @@ def main():
     print('Feature importances:')
     print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in feats]))
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
+
+    featnames = list(zip(*feats))[0]
+    importances = list(zip(*feats))[1]
+    permImportance = sklearn.inspection.permutation_importance(classifier, inputs_train, targets_train)
+    featureImpMethods = {
+        permImportance.importances_mean,
+        importances,
+    }
+    x = np.arange(len(feats))  # the label locations
+    width = 0.25  # the width of the bars
+    multiplier = 0
+
+    fig, ax = plt.subplots(layout='constrained')
+
+    for attribute, measurement in featureImpMethods.items():
+        offset = width * multiplier
+        rects = ax.bar(x + offset, measurement, width)
+        ax.bar_label(rects, padding=3)
+        multiplier += 1
+
+    ax.set_ylabel('relative importance')
+    ax.set_xticks(x + width, featnames)
+    ax.set_ylim(0, 1)
+    plt.show()
     print(f'Accuracy: {(results == targets_test).mean()}')
 
 if __name__ == '__main__':
