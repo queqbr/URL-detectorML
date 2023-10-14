@@ -155,30 +155,34 @@ def get_data():
 def main():
     model_load_path = Path('model.pickle')
     inputs_train, inputs_test, targets_train, targets_test = get_data()
+    hyperparams = {'random_state': 0, 'n_estimators': 100}
     if model_load_path.exists():
         with open('model.pickle', 'rb') as pickle_file:
             classifier = pickle.load(pickle_file)
     else:
-        classifier = RandomForestClassifier(random_state=0, verbose=1, n_estimators=100)
+        classifier = RandomForestClassifier(**hyperparams)
         classifier.fit(inputs_train, targets_train)
         pickle.dump(classifier, model_load_path.open(mode='wb'))
 
     results = classifier.predict(inputs_test)
 
-    feat_names = sorted([t[0] for t in inspect.getmembers(Features, predicate=inspect.isfunction)])
-    feats = sorted(zip(classifier.feature_importances_, feat_names))[::-1]
+    feat_names = np.array([t[0] for t in inspect.getmembers(Features, predicate=inspect.isfunction)])
+
+    idx = np.argsort(classifier.feature_importances_)[::-1]
+
     print('Feature importances:')
-    print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in feats]))
+    print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in zip(classifier.feature_importances_[idx], feat_names[idx])]))
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
 
-    featnames = list(zip(*feats))[0]
-    importances = list(zip(*feats))[1]
-    permImportance = sklearn.inspection.permutation_importance(classifier, inputs_train, targets_train)
+    permImportance = sklearn.inspection.permutation_importance(
+        classifier, inputs_train,
+        targets_train, n_repeats=1
+    )
     featureImpMethods = {
-        permImportance.importances_mean,
-        importances,
+        'Permutation Importances': permImportance.importances_mean[idx],
+        'RF Importances': classifier.feature_importances_[idx],
     }
-    x = np.arange(len(feats))  # the label locations
+    x = np.arange(len(feat_names))  # the label locations
     width = 0.25  # the width of the bars
     multiplier = 0
 
@@ -191,10 +195,10 @@ def main():
         multiplier += 1
 
     ax.set_ylabel('relative importance')
-    ax.set_xticks(x + width, featnames)
+    ax.set_xticks(x + width, feat_names)
     ax.set_ylim(0, 1)
     plt.show()
-    print(f'Accuracy: {(results == targets_test).mean()}')
+    print(f'Accuracy: {(results == targets_test).mean() * 100:.4f}%')
 
 if __name__ == '__main__':
     main()
