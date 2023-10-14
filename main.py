@@ -2,7 +2,6 @@ import csv
 import inspect
 import re
 
-import sklearn
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
@@ -44,11 +43,44 @@ def format_label_names(d):
     return concatenated_keys_list
 
 def display_accuracy(target, predictions, labels, title):
+    print('Plotting confusion matrix...')
     cm = confusion_matrix(target, predictions)
     cm_display = ConfusionMatrixDisplay(cm, display_labels=labels)
     fig, ax = plt.subplots()
     cm_display.plot(ax=ax)
     ax.set_title(title)
+    plt.show()
+
+def display_feature_importances(classifier, inputs_train, targets_train):
+    feat_names = np.array([t[0] for t in inspect.getmembers(Features, predicate=inspect.isfunction)])
+    # Indices of most important features
+    idx = np.argsort(classifier.feature_importances_)[::-1]
+    print('Feature importances:')
+    print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in zip(classifier.feature_importances_[idx], feat_names[idx])]))
+    print('Computing Permutation Importances...')
+    permImportance = permutation_importance(
+        classifier, inputs_train,
+        targets_train, n_repeats=1
+    )
+    featureImpMethods = {
+        'Permutation Importances': permImportance.importances_mean[idx],
+        'RF Importances': classifier.feature_importances_[idx],
+    }
+    x = np.arange(len(feat_names))  # the label locations
+    width = 0.25  # the width of the bars
+    multiplier = 0
+
+    print('Plotting feature importances...')
+    fig, ax = plt.subplots(layout='constrained')
+    for attribute, measurement in featureImpMethods.items():
+        offset = width * multiplier
+        rects = ax.bar(x + offset, measurement, width)
+        ax.bar_label(rects, padding=3)
+        multiplier += 1
+
+    ax.set_ylabel('relative importance')
+    ax.set_xticks(x + width, feat_names[idx])
+    ax.set_ylim(0, 1)
     plt.show()
 
 class Features:
@@ -161,44 +193,13 @@ def main():
             classifier = pickle.load(pickle_file)
     else:
         classifier = RandomForestClassifier(**hyperparams)
+        print(f'Trainining {classifier.__class__.__name__}...')
         classifier.fit(inputs_train, targets_train)
         pickle.dump(classifier, model_load_path.open(mode='wb'))
-
     results = classifier.predict(inputs_test)
-
-    feat_names = np.array([t[0] for t in inspect.getmembers(Features, predicate=inspect.isfunction)])
-
-    idx = np.argsort(classifier.feature_importances_)[::-1]
-
-    print('Feature importances:')
-    print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in zip(classifier.feature_importances_[idx], feat_names[idx])]))
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
-
-    permImportance = sklearn.inspection.permutation_importance(
-        classifier, inputs_train,
-        targets_train, n_repeats=1
-    )
-    featureImpMethods = {
-        'Permutation Importances': permImportance.importances_mean[idx],
-        'RF Importances': classifier.feature_importances_[idx],
-    }
-    x = np.arange(len(feat_names))  # the label locations
-    width = 0.25  # the width of the bars
-    multiplier = 0
-
-    fig, ax = plt.subplots(layout='constrained')
-
-    for attribute, measurement in featureImpMethods.items():
-        offset = width * multiplier
-        rects = ax.bar(x + offset, measurement, width)
-        ax.bar_label(rects, padding=3)
-        multiplier += 1
-
-    ax.set_ylabel('relative importance')
-    ax.set_xticks(x + width, feat_names)
-    ax.set_ylim(0, 1)
-    plt.show()
-    print(f'Accuracy: {(results == targets_test).mean() * 100:.4f}%')
+    display_feature_importances(classifier, inputs_train, targets_train)
+    print(f'Test Accuracy: {(results == targets_test).mean() * 100:.4f}%')
 
 if __name__ == '__main__':
     main()
