@@ -193,10 +193,27 @@ def main():
             classifier = pickle.load(pickle_file)
     else:
         classifier = RandomForestClassifier(**hyperparams)
-        print(f'Trainining {classifier.__class__.__name__}...')
+        print(f'Training {classifier.__class__.__name__}...')
         classifier.fit(inputs_train, targets_train)
         pickle.dump(classifier, model_load_path.open(mode='wb'))
+
+    classifier1 = RandomForestClassifier(random_state=0, n_estimators=1)
+    classifier2 = RandomForestClassifier(random_state=0, n_estimators=2)
+    classifier3 = RandomForestClassifier(random_state=0, n_estimators=3)
+    classifier1.fit(inputs_train, targets_train)
+    classifier2.fit(inputs_train, targets_train)
+    classifier3.fit(inputs_train, targets_train)
+
+
     results = classifier.predict(inputs_test)
+    results1 = classifier1.predict(inputs_test)
+    results2 = classifier2.predict(inputs_test)
+    results3 = classifier3.predict(inputs_test)
+    xAxis = [1, 2, 3]
+    yAxis = [(results1==targets_test).mean() * 100, (results2==targets_test).mean() * 100, (results3==targets_test).mean() * 100]
+    plt.plot(xAxis, yAxis)
+    plt.ylim(0,100)
+    plt.show()
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
     display_feature_importances(classifier, inputs_train, targets_train)
     print(f'Test Accuracy: {(results == targets_test).mean() * 100:.4f}%')
