@@ -51,10 +51,9 @@ def display_accuracy(target, predictions, labels, title):
     ax.set_title(title)
     plt.show()
 
-def display_feature_importances(classifier, inputs_train, targets_train):
+def display_feature_importances(classifier, inputs_train, targets_train, idx):
     feat_names = np.array([t[0] for t in inspect.getmembers(Features, predicate=inspect.isfunction)])
     # Indices of most important features
-    idx = np.argsort(classifier.feature_importances_)[::-1]
     print('Feature importances:')
     print('\n'.join([f'{t[1]:15s} {t[0]:.4f}' for t in zip(classifier.feature_importances_[idx], feat_names[idx])]))
     print('Computing Permutation Importances...')
@@ -184,6 +183,20 @@ def get_data():
     )
     return inputs_train, inputs_test, targets_train, targets_test
 
+def plot_performance_curve(inputs_train, inputs_test, targets_train, targets_test, idx):
+
+    accuracies = []
+    for i in range(1, len(idx)):
+        classifier = RandomForestClassifier(random_state=0)
+        classifier.fit(inputs_train[:, idx[:i]], targets_train)
+        accuracies.append((
+            targets_test == classifier.predict(inputs_test[:, idx[:i]])
+        ).mean())
+    plt.plot(range(1, len(accuracies) + 1), accuracies)
+    plt.xlabel('Number of most important features to include')
+    plt.ylabel('Accuracy')
+    plt.show()
+
 def main():
     model_load_path = Path('model.pickle')
     inputs_train, inputs_test, targets_train, targets_test = get_data()
@@ -197,25 +210,12 @@ def main():
         classifier.fit(inputs_train, targets_train)
         pickle.dump(classifier, model_load_path.open(mode='wb'))
 
-    classifier1 = RandomForestClassifier(random_state=0, n_estimators=1)
-    classifier2 = RandomForestClassifier(random_state=0, n_estimators=2)
-    classifier3 = RandomForestClassifier(random_state=0, n_estimators=3)
-    classifier1.fit(inputs_train, targets_train)
-    classifier2.fit(inputs_train, targets_train)
-    classifier3.fit(inputs_train, targets_train)
-
-
     results = classifier.predict(inputs_test)
-    results1 = classifier1.predict(inputs_test)
-    results2 = classifier2.predict(inputs_test)
-    results3 = classifier3.predict(inputs_test)
-    xAxis = [1, 2, 3]
-    yAxis = [(results1==targets_test).mean() * 100, (results2==targets_test).mean() * 100, (results3==targets_test).mean() * 100]
-    plt.plot(xAxis, yAxis)
-    plt.ylim(0,100)
-    plt.show()
+    idx = np.argsort(classifier.feature_importances_)[::-1]
+    plot_performance_curve(inputs_train, inputs_test, targets_train, targets_test, idx)
+
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
-    display_feature_importances(classifier, inputs_train, targets_train)
+    # display_feature_importances(classifier, inputs_train, targets_train, idx)
     print(f'Test Accuracy: {(results == targets_test).mean() * 100:.4f}%')
 
 if __name__ == '__main__':
