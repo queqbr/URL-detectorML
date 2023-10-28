@@ -1,16 +1,18 @@
 import csv
 import inspect
 import re
+from pathlib import Path
+import pickle
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
-from pathlib import Path
-import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModel
+import torch
 
 labels = {
     'benign': 0,
@@ -197,7 +199,7 @@ def plot_performance_curve(inputs_train, inputs_test, targets_train, targets_tes
     plt.ylabel('Accuracy')
     plt.show()
 
-def main():
+def use_handmade_features():
     model_load_path = Path('model.pickle')
     inputs_train, inputs_test, targets_train, targets_test = get_data()
     hyperparams = {'random_state': 0, 'n_estimators': 100}
@@ -217,6 +219,20 @@ def main():
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
     # display_feature_importances(classifier, inputs_train, targets_train, idx)
     print(f'Test Accuracy: {(results == targets_test).mean() * 100:.4f}%')
+
+def use_bert_features():
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+
+    # `inference_mode` should be used to wrap any use of the model when we are
+    # not training the model to ensure is no memory leak
+    with torch.inference_mode():
+        model = AutoModel.from_pretrained("bert-base-cased")
+        res = model(**tokenizer('a cat on the mat', return_tensors='pt')).pooler_output
+    breakpoint()
+
+def main():
+    # use_handmade_features()
+    use_bert_features()
 
 if __name__ == '__main__':
     main()
