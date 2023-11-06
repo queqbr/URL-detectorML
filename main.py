@@ -10,6 +10,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.neural_network import MLPClassifier
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel
 import torch
@@ -228,7 +229,46 @@ def use_bert_features():
     with torch.inference_mode():
         model = AutoModel.from_pretrained("bert-base-cased")
         res = model(**tokenizer('a cat on the mat', return_tensors='pt')).pooler_output
-    breakpoint()
+
+    filename = 'malicious_phish.csv'
+    reader = csv.reader(open(filename, encoding="latin1"))
+    next(reader)
+    urls = [line[0] for line in reader]
+
+    reader = csv.reader(open(filename, encoding="latin1"))
+    next(reader)
+    target = np.array([labels[line[1]] for line in reader])
+    bert_data_path = Path('bertData.npy')
+    new_inputs = np.zeros(len(urls))
+
+    if bert_data_path.exists():
+        new_inputs = np.load(bert_data_path)
+    else:
+        for i in range(len(urls)):
+            new_inputs[i] = tokenizer.encode(urls[i])
+        np.save('bertData.npy', new_inputs)
+
+    bert_inputs_train, bert_inputs_test, bert_targets_train, bert_targets_test = train_test_split(
+        new_inputs, target, test_size=None,
+        random_state=0, shuffle=True, stratify=target
+    )
+    model_load_path = Path('bert.pickle')
+    hyperparams = {'random_state': 0}
+    if model_load_path.exists():
+        with open('bert.pickle', 'rb') as pickle_file:
+            classifier = pickle.load(pickle_file)
+    else:
+        classifier = MLPClassifier(**hyperparams)
+        print(f'Training {classifier.__class__.__name__}...')
+        classifier.fit(bert_inputs_train, bert_targets_train)
+        pickle.dump(classifier, model_load_path.open(mode='wb'))
+
+    results = classifier.predict(bert_inputs_test)
+    display_accuracy(bert_targets_test, results, format_label_names(labels), "Malicious URLs")
+    print(f'Test Accuracy: {(results == bert_targets_test).mean() * 100:.4f}%')
+
+
+
 
 def main():
     # use_handmade_features()
