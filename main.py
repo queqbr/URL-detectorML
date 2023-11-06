@@ -222,35 +222,37 @@ def use_handmade_features():
     print(f'Test Accuracy: {(results == targets_test).mean() * 100:.4f}%')
 
 def use_bert_features():
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-
-    # `inference_mode` should be used to wrap any use of the model when we are
-    # not training the model to ensure is no memory leak
-    with torch.inference_mode():
-        model = AutoModel.from_pretrained("bert-base-cased")
-        res = model(**tokenizer('a cat on the mat', return_tensors='pt')).pooler_output
-
     filename = 'malicious_phish.csv'
     reader = csv.reader(open(filename, encoding="latin1"))
     next(reader)
     urls = [line[0] for line in reader]
-
     reader = csv.reader(open(filename, encoding="latin1"))
     next(reader)
-    target = np.array([labels[line[1]] for line in reader])
-    bert_data_path = Path('bertData.npy')
-    new_inputs = np.zeros(len(urls))
+    targets = np.array([labels[line[1]] for line in reader])
+
+    bert_data_path = Path('bert_data.npy')
 
     if bert_data_path.exists():
-        new_inputs = np.load(bert_data_path)
+        arr_file = np.load(bert_data_path)
+        inputs = arr_file['inputs']
+        targets = arr_file['targets']
     else:
-        for i in range(len(urls)):
-            new_inputs[i] = tokenizer.encode(urls[i])
-        np.save('bertData.npy', new_inputs)
+        inputs = []
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        # `inference_mode` should be used to wrap any use of the model when we are
+        # not training the model to ensure is no memory leak
+        with torch.inference_mode():
+            model = AutoModel.from_pretrained("bert-base-cased")
+            print('Tokenizing URLs...')
+            tokenized = tokenizer(urls, return_tensors='pt', padding=True, truncation=True)
+            print('Encoding URLs...')
+            inputs = model(**tokenized).pooler_output
+        inputs = inputs.detach().numpy()
+        np.savez_compressed(bert_data_path, inputs=inputs, targets=targets)
 
     bert_inputs_train, bert_inputs_test, bert_targets_train, bert_targets_test = train_test_split(
-        new_inputs, target, test_size=None,
-        random_state=0, shuffle=True, stratify=target
+        inputs, targets, test_size=None,
+        random_state=0, shuffle=True, stratify=targets
     )
     model_load_path = Path('bert.pickle')
     hyperparams = {'random_state': 0}
@@ -266,9 +268,6 @@ def use_bert_features():
     results = classifier.predict(bert_inputs_test)
     display_accuracy(bert_targets_test, results, format_label_names(labels), "Malicious URLs")
     print(f'Test Accuracy: {(results == bert_targets_test).mean() * 100:.4f}%')
-
-
-
 
 def main():
     # use_handmade_features()
