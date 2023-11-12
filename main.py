@@ -215,7 +215,7 @@ def use_handmade_features():
 
     results = classifier.predict(inputs_test)
     idx = np.argsort(classifier.feature_importances_)[::-1]
-    plot_performance_curve(inputs_train, inputs_test, targets_train, targets_test, idx)
+    #plot_performance_curve(inputs_train, inputs_test, targets_train, targets_test, idx)
 
     display_accuracy(targets_test, results, format_label_names(labels), "Malicious URLs")
     # display_feature_importances(classifier, inputs_train, targets_train, idx)
@@ -244,11 +244,14 @@ def use_bert_features():
         with torch.inference_mode():
             model = AutoModel.from_pretrained("bert-base-cased")
             print('Tokenizing URLs...')
-            tokenized = tokenizer(urls, return_tensors='pt', padding=True, truncation=True)
-            print('Encoding URLs...')
-            inputs = model(**tokenized).pooler_output
-        inputs = inputs.detach().numpy()
-        np.savez_compressed(bert_data_path, inputs=inputs, targets=targets)
+            end_inputs = []
+            for i in tqdm(range(0, 100, 100)):
+                tokenized = tokenizer(urls[:i], return_tensors='pt', padding=True, truncation=True)
+                print('Encoding URLs...')
+                inputs = model(**tokenized).pooler_output
+                end_inputs.append(inputs.detach().tolist())
+        end_inputs = np.array(end_inputs)
+        np.savez_compressed(bert_data_path, inputs=end_inputs, targets=targets)
 
     bert_inputs_train, bert_inputs_test, bert_targets_train, bert_targets_test = train_test_split(
         inputs, targets, test_size=None,
@@ -270,7 +273,7 @@ def use_bert_features():
     print(f'Test Accuracy: {(results == bert_targets_test).mean() * 100:.4f}%')
 
 def main():
-    # use_handmade_features()
+    #use_handmade_features()
     use_bert_features()
 
 if __name__ == '__main__':
