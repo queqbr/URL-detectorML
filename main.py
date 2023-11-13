@@ -245,8 +245,8 @@ def use_bert_features():
             model = AutoModel.from_pretrained("bert-base-cased")
             print('Tokenizing URLs...')
             end_inputs = []
-            for i in tqdm(range(0, 100, 100)):
-                tokenized = tokenizer(urls[:i], return_tensors='pt', padding=True, truncation=True)
+            for i in tqdm(range(0, len(urls), 10000)):
+                tokenized = tokenizer(urls[i:i+10000], return_tensors='pt', padding=True, truncation=True)
                 print('Encoding URLs...')
                 inputs = model(**tokenized).pooler_output
                 end_inputs.append(inputs.detach().tolist())
