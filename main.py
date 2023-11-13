@@ -243,14 +243,18 @@ def use_bert_features():
         # not training the model to ensure is no memory leak
         with torch.inference_mode():
             model = AutoModel.from_pretrained("bert-base-cased")
-            print('Tokenizing URLs...')
             end_inputs = []
-            for i in tqdm(range(0, len(urls), 10000)):
-                tokenized = tokenizer(urls[i:i+10000], return_tensors='pt', padding=True, truncation=True)
-                print('Encoding URLs...')
+            batch_size = 100
+            for i in tqdm(range(0, len(urls), batch_size)):
+                print('Tokenizing URLs {i} to {i + batch_size}...')
+                tokenized = tokenizer(
+                    urls[i: i + batch_size], return_tensors='pt',
+                    padding=True, truncation=True, max_length=75,
+                )
+                print('Encoding URLs {i} to {i + batch_size}...')
                 inputs = model(**tokenized).pooler_output
-                end_inputs.append(inputs.detach().tolist())
-        end_inputs = np.array(end_inputs)
+                end_inputs.append(inputs.detach().numpy())
+        end_inputs = np.concatenate(end_inputs)
         np.savez_compressed(bert_data_path, inputs=end_inputs, targets=targets)
 
     bert_inputs_train, bert_inputs_test, bert_targets_train, bert_targets_test = train_test_split(
